@@ -28,6 +28,12 @@ func TestReadFromArray(t *testing.T) {
 	if got := ReadFromArray(array, mask); got != want {
 		t.Errorf("ReadFromArray(%x, %x) = %x, want %x", array, mask, got, want)
 	}
+
+	// Test early return
+	want = 0
+	if got := ReadFromArray([]byte{}, []byte{ 0x0F }); got != want {
+		t.Errorf("ReadFromArray(%x, %x) = %x, want %x", array, mask, got, want)
+	}
 }
 
 func TestReadFromArrayTypeSpecifics(t *testing.T) {
@@ -66,6 +72,14 @@ func TestWriteToArray(t *testing.T) {
 	mask = []byte{0xF0, 0x0F}
 	want = []byte{0x10, 0x02}
 
+	if got := WriteToArray(array, mask, value); !bytes.Equal(got, want) {
+		t.Errorf("ReadFromArray(%x, %x) = %x, want %x", array, mask, got, want)
+	}
+
+	// Test early return
+	array = []byte{0x00}
+	mask = []byte{0x0F, 0x0F}
+	want = []byte{}
 	if got := WriteToArray(array, mask, value); !bytes.Equal(got, want) {
 		t.Errorf("ReadFromArray(%x, %x) = %x, want %x", array, mask, got, want)
 	}

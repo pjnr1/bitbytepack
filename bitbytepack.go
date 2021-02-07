@@ -5,7 +5,6 @@ import (
 )
 
 func ReadFromArray(array []byte, mask []byte) uint {
-	// Ensure that the value array is longer than the mask array (we iterate over the mask array)
 	if len(array) < len(mask) {
 		return 0
 	}
@@ -38,7 +37,6 @@ func ReadFromArray(array []byte, mask []byte) uint {
 }
 
 func WriteToArray(array []byte, mask []byte, value uint) []byte {
-	// Ensure that the value array is longer than the mask array (we iterate over the mask array)
 	if len(array) < len(mask) {
 		return []byte{}
 	}
