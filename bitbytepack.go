@@ -12,7 +12,9 @@ func ReadFromArray(array []byte, mask []byte) uint {
 
 	var finalValue uint = 0
 	var b = 0
+
 	for i, m := range mask {
+
 		// Extract byte with mask
 		var maskedValue = uint(array[i] & m)
 
@@ -42,6 +44,7 @@ func WriteToArray(array []byte, mask []byte, value uint) []byte {
 	}
 
 	for i := range mask {
+
 		// Reverse iteration
 		j := len(mask) - i - 1
 
@@ -51,6 +54,7 @@ func WriteToArray(array []byte, mask []byte, value uint) []byte {
 		// Apply mask
 		array[j] &= mask[j]
 
+		// Shift value by the number of bits that was written to the array
 		value >>= bits.OnesCount8(mask[j])
 	}
 	return array
@@ -81,4 +85,3 @@ func WriteToArray32(array []byte, mask []byte, value uint32) []byte {
 func WriteToArray64(array []byte, mask []byte, value uint64) []byte {
 	return WriteToArray(array, mask, uint(value))
 }
-
