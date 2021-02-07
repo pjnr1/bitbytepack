@@ -1,7 +1,13 @@
 package bitbytepack
 
 import (
+	"errors"
+	"math"
 	"math/bits"
+)
+
+var (
+	ErrNotEnoughBitsToEmbedValue = errors.New("the mask array doesn't contain enough bits to embed the value object")
 )
 
 const (
@@ -11,6 +17,14 @@ const (
 type MaskValuePair struct {
 	mask  []byte
 	value uint
+}
+
+func CountOnes(array []byte) int {
+	count := 0
+	for _, m := range array {
+		count += bits.OnesCount8(m)
+	}
+	return count
 }
 
 func ReadFromArray(array []byte, mask []byte) uint {
@@ -45,17 +59,34 @@ func ReadFromArray(array []byte, mask []byte) uint {
 	return finalValue
 }
 
-func ReadFromArray8(v []byte, mask []byte) uint8 {
-	return uint8(ReadFromArray(v, mask))
+// Overload for uint8
+func ReadFromArray8(array []byte, mask []byte) uint8 {
+	return uint8(ReadFromArray(array, mask))
 }
-func ReadFromArray16(v []byte, mask []byte) uint16 {
-	return uint16(ReadFromArray(v, mask))
+
+// Overload for uint16
+func ReadFromArray16(array []byte, mask []byte) uint16 {
+	return uint16(ReadFromArray(array, mask))
 }
-func ReadFromArray32(v []byte, mask []byte) uint32 {
-	return uint32(ReadFromArray(v, mask))
+
+// Overload for uint32
+func ReadFromArray32(array []byte, mask []byte) uint32 {
+	return uint32(ReadFromArray(array, mask))
 }
-func ReadFromArray64(v []byte, mask []byte) uint64 {
-	return uint64(ReadFromArray(v, mask))
+
+// Overload for uint64
+func ReadFromArray64(array []byte, mask []byte) uint64 {
+	return uint64(ReadFromArray(array, mask))
+}
+
+// "Overload" to read embedded float32 values of []byte array
+func ReadFromArray32F(array []byte, mask []byte) float32 {
+	return math.Float32frombits(ReadFromArray32(array, mask))
+}
+
+// "Overload" to read embedded float64 values of []byte array
+func ReadFromArray64F(array []byte, mask []byte) float64 {
+	return math.Float64frombits(ReadFromArray64(array, mask))
 }
 
 func WriteToArray(array []byte, mask []byte, value uint) []byte {
@@ -83,17 +114,45 @@ func WriteToArray(array []byte, mask []byte, value uint) []byte {
 	return array
 }
 
-func WriteToArray8(array []byte, mask []byte, value uint8) []byte {
-	return WriteToArray(array, mask, uint(value))
+func WriteToArray8(array []byte, mask []byte, value uint8) ([]byte, error) {
+	if CountOnes(mask) < bits.Len8(value) {
+		return array, ErrNotEnoughBitsToEmbedValue
+	}
+	return WriteToArray(array, mask, uint(value)), nil
 }
-func WriteToArray16(array []byte, mask []byte, value uint16) []byte {
-	return WriteToArray(array, mask, uint(value))
+func WriteToArray16(array []byte, mask []byte, value uint16) ([]byte, error) {
+	if CountOnes(mask) < bits.Len16(value) {
+		return array, ErrNotEnoughBitsToEmbedValue
+	}
+	return WriteToArray(array, mask, uint(value)), nil
 }
-func WriteToArray32(array []byte, mask []byte, value uint32) []byte {
-	return WriteToArray(array, mask, uint(value))
+func WriteToArray32(array []byte, mask []byte, value uint32) ([]byte, error) {
+	if CountOnes(mask) < bits.Len32(value) {
+		return array, ErrNotEnoughBitsToEmbedValue
+	}
+	return WriteToArray(array, mask, uint(value)), nil
 }
-func WriteToArray64(array []byte, mask []byte, value uint64) []byte {
-	return WriteToArray(array, mask, uint(value))
+func WriteToArray64(array []byte, mask []byte, value uint64) ([]byte, error) {
+	if CountOnes(mask) < bits.Len64(value) {
+		return array, ErrNotEnoughBitsToEmbedValue
+	}
+	return WriteToArray(array, mask, uint(value)), nil
+}
+
+// "Overload" to embed float32 value in a []byte array
+func WriteToArray32F(array []byte, mask []byte, value float32) ([]byte, error) {
+	if CountOnes(mask) < 32 {
+		return array, ErrNotEnoughBitsToEmbedValue
+	}
+	return WriteToArray32(array, mask, math.Float32bits(value))
+}
+
+// "Overload" to embed float64 value in a []byte array
+func WriteToArray64F(array []byte, mask []byte, value float64) ([]byte, error) {
+	if CountOnes(mask) < 64 {
+		return array, ErrNotEnoughBitsToEmbedValue
+	}
+	return WriteToArray64(array, mask, math.Float64bits(value))
 }
 
 // Read multiple values from array using an array of masks

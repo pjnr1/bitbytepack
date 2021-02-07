@@ -93,16 +93,16 @@ func TestWriteToArrayTypeSpecifics(t *testing.T) {
 	value := uint(0x12)
 	want := []byte{0x01, 0x02}
 
-	if got := WriteToArray8(array, mask, uint8(value)); !bytes.Equal(got, want) {
+	if got, e := WriteToArray8(array, mask, uint8(value)); e != nil || !bytes.Equal(got, want) {
 		t.Errorf("WriteToArray8(%x, %x, %x) = %x, want %x", array, mask, uint8(value), got, want)
 	}
-	if got := WriteToArray16(array, mask, uint16(value)); !bytes.Equal(got, want) {
+	if got, e := WriteToArray16(array, mask, uint16(value)); e != nil || !bytes.Equal(got, want) {
 		t.Errorf("WriteToArray16(%x, %x, %x) = %x, want %x", array, mask, uint16(value), got, want)
 	}
-	if got := WriteToArray32(array, mask, uint32(value)); !bytes.Equal(got, want) {
+	if got, e := WriteToArray32(array, mask, uint32(value)); e != nil || !bytes.Equal(got, want) {
 		t.Errorf("WriteToArray32(%x, %x, %x) = %x, want %x", array, mask, uint32(value), got, want)
 	}
-	if got := WriteToArray64(array, mask, uint64(value)); !bytes.Equal(got, want) {
+	if got, e := WriteToArray64(array, mask, uint64(value)); e != nil || !bytes.Equal(got, want) {
 		t.Errorf("WriteToArray64(%x, %x, %x) = %x, want %x", array, mask, uint64(value), got, want)
 	}
 }

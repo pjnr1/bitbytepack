@@ -2,6 +2,11 @@
 
 Small Go module to handle composition of byte arrays with embedded values.
 
+## TODO
+
+ -[ ] Create test for float functions.
+
+ -[ ] Extend usage manual with how to use the Mult* functions
 
 ## Usage
 
