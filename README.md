@@ -2,11 +2,6 @@
 
 Small Go module to handle composition of byte arrays with embedded values.
 
-## TODO
-
- -[ ] Create test for float functions.
-
- -[ ] Extend usage manual with how to use the Mult* functions
 
 ## Usage
 
@@ -43,3 +38,8 @@ bitbytepacket.ReadFromArray(command, mask)
 
 The main function `bitbytepacket.ReadFromArray(...)` return `uint`, but to obtain the return
 type `uint8`, `uint16`, `uint32`, `uint64`, use `bitbytepacket.ReadFromArray8(...)`.
+
+
+## TODO
+
+Extend usage manual with how to use the Mult* functions

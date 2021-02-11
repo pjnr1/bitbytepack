@@ -66,7 +66,7 @@ func TestWriteToArray(t *testing.T) {
 	value := uint(0x12)
 	want := []byte{0x01, 0x02}
 
-	if got := WriteToArray(array, mask, value); !bytes.Equal(got, want) {
+	if got, e := WriteToArray(array, mask, value); e != nil || !bytes.Equal(got, want) {
 		t.Errorf("ReadFromArray(%x, %x) = %x, want %x", array, mask, got, want)
 	}
 
@@ -74,7 +74,7 @@ func TestWriteToArray(t *testing.T) {
 	mask = []byte{0xF0, 0x0F}
 	want = []byte{0x1a, 0x02}
 
-	if got := WriteToArray(array, mask, value); !bytes.Equal(got, want) {
+	if got, e := WriteToArray(array, mask, value); e != nil || !bytes.Equal(got, want) {
 		t.Errorf("WriteToArray(%x, %x) = %x, want %x", array, mask, got, want)
 	}
 
@@ -82,8 +82,18 @@ func TestWriteToArray(t *testing.T) {
 	array = []byte{0x00}
 	mask = []byte{0x0F, 0x0F}
 	want = []byte{}
-	if got := WriteToArray(array, mask, value); !bytes.Equal(got, want) {
-		t.Errorf("ReadFromArray(%x, %x) = %x, want %x", array, mask, got, want)
+	if _, e := WriteToArray(array, mask, value); e != ErrArrayShorterThanMask {
+		t.Errorf("WriteToArray(%x, %x, %x) didn't throw '%s', but '%s'",
+			array, mask, value, ErrNotEnoughBitsToEmbedValue, e)
+	}
+
+	// Test early return
+	array = []byte{0x00, 0x00}
+	mask = []byte{0x00, 0x0F}
+	want = []byte{}
+	if _, e := WriteToArray(array, mask, value); e != ErrNotEnoughBitsToEmbedValue {
+		t.Errorf("WriteToArray(%x, %x, %x) didn't throw '%s', but '%s'",
+			array, mask, value, ErrNotEnoughBitsToEmbedValue, e)
 	}
 }
 
@@ -109,16 +119,16 @@ func TestWriteToArrayTypeSpecifics(t *testing.T) {
 
 func TestMultReadFromArray(t *testing.T) {
 	array := []byte{0x12, 0x34, 0x56, 0x78}
-	masks := [][]byte{
-		{0xF0, 0xF0, 0x00, 0x00},
-		{0x0F, 0x0F, 0x00, 0x00},
-		{0xFF, 0x00, 0xFF, 0x00},
-		{0x00, 0xFF, 0x00, 0x0F}}
-	want := []uint{
-		0x13,
-		0x24,
-		0x1256,
-		0x0348}
+	masks := []MaskTypePair{
+		{[]byte{0xF0, 0xF0, 0x00, 0x00}, reflect.Uint},
+		{[]byte{0x0F, 0x0F, 0x00, 0x00}, reflect.Uint},
+		{[]byte{0xFF, 0x00, 0xFF, 0x00}, reflect.Uint},
+		{[]byte{0x00, 0xFF, 0x00, 0x0F}, reflect.Uint}}
+	want := []interface{}{
+		uint(0x13),
+		uint(0x24),
+		uint(0x1256),
+		uint(0x0348)}
 
 	if got := MultReadFromArray(array, masks...); !reflect.DeepEqual(want, got) {
 		t.Errorf("MultReadFromArray(%x, %x) = %x, want %x", array, masks, got, want)
@@ -127,31 +137,44 @@ func TestMultReadFromArray(t *testing.T) {
 }
 
 func TestMultReadFromArrayTypeSpecifics(t *testing.T) {
-	array := []byte{0x12, 0x34, 0x56, 0x78}
-	masks := [][]byte{
+	array := []byte{0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0}
+	masks := []MaskTypePair{
+		{[]byte{0xF0, 0xF0, 0x00, 0x00}, reflect.Uint},
+		{[]byte{0x0F, 0x0F, 0x00, 0x00}, reflect.Uint},
+		{[]byte{0xFF, 0x00, 0xFF, 0x00}, reflect.Uint},
+		{[]byte{0x00, 0xFF, 0x00, 0x0F}, reflect.Uint},
+		{[]byte{0xFF, 0xFF, 0xFF, 0xFF}, reflect.Uint},
+		{[]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, reflect.Uint}}
+	want := []interface{}{
+		uint(0x13),
+		uint(0x24),
+		uint(0x1256),
+		uint(0x348),
+		uint(0x12345678),
+		uint(0x123456789A),
+	}
+	if got := MultReadFromArray(array, masks...); !reflect.DeepEqual(want, got) {
+		t.Errorf("MultReadFromArray(%x, %x) = %x, want %x", array, masks, got, want)
+	}
+
+	masksB := [][]byte{
 		{0xF0, 0xF0, 0x00, 0x00},
 		{0x0F, 0x0F, 0x00, 0x00},
 		{0xFF, 0x00, 0xFF, 0x00},
 		{0x00, 0xFF, 0x00, 0x0F},
-		{0xFF, 0xFF, 0xFF, 0xFF}}
-	want := []uint{
-		0x13,
-		0x24,
-		0x1256,
-		0x348,
-		0x12345678}
-
-	if got := MultReadFromArray(array, masks...); !reflect.DeepEqual(want, got) {
-		t.Errorf("MultReadFromArray(%x, %x) = %x, want %x", array, masks, got, want)
-	}
+		{0xFF, 0xFF, 0xFF, 0xFF},
+		{0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+		{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}}
 
 	want8 := []uint8{
 		0x13,
 		0x24,
 		0x56,
 		0x48,
-		0x78}
-	if got := MultReadFromArray8(array, masks...); !reflect.DeepEqual(want8, got) {
+		0x78,
+		0x9A,
+		0xBC}
+	if got := MultReadFromArray8(array, masksB...); !reflect.DeepEqual(want8, got) {
 		t.Errorf("MultReadFromArray8(%x, %x) = %x, want %x", array, masks, got, want)
 	}
 
@@ -160,8 +183,10 @@ func TestMultReadFromArrayTypeSpecifics(t *testing.T) {
 		0x24,
 		0x1256,
 		0x348,
-		0x5678}
-	if got := MultReadFromArray16(array, masks...); !reflect.DeepEqual(want16, got) {
+		0x5678,
+		0x789A,
+		0x9ABC}
+	if got := MultReadFromArray16(array, masksB...); !reflect.DeepEqual(want16, got) {
 		t.Errorf("MultReadFromArray16(%x, %x) = %x, want %x", array, masks, got, want)
 	}
 
@@ -170,8 +195,10 @@ func TestMultReadFromArrayTypeSpecifics(t *testing.T) {
 		0x24,
 		0x1256,
 		0x348,
-		0x12345678}
-	if got := MultReadFromArray32(array, masks...); !reflect.DeepEqual(want32, got) {
+		0x12345678,
+		0x3456789A,
+		0x56789ABC}
+	if got := MultReadFromArray32(array, masksB...); !reflect.DeepEqual(want32, got) {
 		t.Errorf("MultReadFromArray32(%x, %x) = %x, want %x", array, masks, got, want)
 	}
 
@@ -180,24 +207,83 @@ func TestMultReadFromArrayTypeSpecifics(t *testing.T) {
 		0x24,
 		0x1256,
 		0x348,
-		0x12345678}
-	if got := MultReadFromArray64(array, masks...); !reflect.DeepEqual(want64, got) {
+		0x12345678,
+		0x123456789A,
+		0x123456789ABC}
+	if got := MultReadFromArray64(array, masksB...); !reflect.DeepEqual(want64, got) {
 		t.Errorf("MultReadFromArray64(%x, %x) = %x, want %x", array, masks, got, want)
 	}
 }
 
 func TestMultWriteToArray(t *testing.T) {
-	array := make([]byte, 4)
-	maskValuePairs := []MaskValuePair{
-		{[]byte{0x00, 0x00, 0x00, 0xFF}, 0x78},
-		{[]byte{0x00, 0x0F, 0x0F, 0x00}, 0x46},
-		{[]byte{0xF0, 0x00, 0xF0, 0x00}, 0x15},
-		{[]byte{0x0F, 0xF0, 0x00, 0x00}, 0x23},
+	// Unsigned values
+	array := []byte{0x00, 0x00, 0x00, 0x00, 0x00}
+	maskValuePairs := []interface{}{
+		MaskValuePair{[]byte{0x00, 0x00, 0x00, 0x00, 0xFF}, 0x9A},
+		MaskValuePair8{[]byte{0x00, 0x00, 0x00, 0xFF}, 0x78},
+		MaskValuePair16{[]byte{0x00, 0x0F, 0x0F, 0x00}, 0x46},
+		MaskValuePair32{[]byte{0xF0, 0x00, 0xF0, 0x00}, 0x15},
+		MaskValuePair64{[]byte{0x0F, 0xF0, 0x00, 0x00}, 0x23},
 	}
-	want := []byte{0x12, 0x34, 0x56, 0x78}
-	if got := MultWriteToArray(array, maskValuePairs...); !reflect.DeepEqual(got, want) {
+	want := []byte{0x12, 0x34, 0x56, 0x78, 0x9A}
+	if got, e := MultWriteToArray(array, maskValuePairs...); e != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("MultWriteToArray(%x, %x) = %x, want %x", array, maskValuePairs, got, want)
 	}
+
+	// Signed values
+	array = make([]byte, 24)
+	maskValuePairs = []interface{}{
+		MaskValuePairS{[]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, -1},
+		MaskValuePair8S{[]byte{0x00, 0x00, 0x00, 0xFF}, -43},
+		MaskValuePair16S{[]byte{0x00, 0xFF, 0xFF, 0x00}, -1345},
+		MaskValuePair32S{[]byte{0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF}, -705422},
+		MaskValuePair64S{[]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, -12134142},
+	}
+	want = []byte{0x00, 0xFA, 0xBF, 0xD5, 0xFF, 0xF5, 0x3C, 0x72, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x46, 0xD9, 0x02}
+	if got, e := MultWriteToArray(array, maskValuePairs...); e != nil || !reflect.DeepEqual(got, want) {
+		if e != nil {
+			t.Errorf("Got the error: %s", e)
+		}
+		t.Errorf("MultWriteToArray(%x, %x) = %x, want %x", array, maskValuePairs, got, want)
+	}
+
+	// Float values
+	array = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	maskValuePairs = []interface{}{
+		MaskValuePair32F{[]byte{0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0x00, 0x00}, 1.00},
+		MaskValuePair32F{[]byte{0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x00, 0x00}, 1.50},
+	}
+	want = []byte{0x33, 0xFF, 0x8C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	if got, e := MultWriteToArray(array, maskValuePairs...); e != nil || !reflect.DeepEqual(got, want) {
+		if e != nil {
+			t.Errorf("Got the error: %s", e)
+		}
+		t.Errorf("MultWriteToArray(%x, %x) = %x, want %x", array, maskValuePairs, got, want)
+	}
+
+	wantErr := ErrNotEnoughBitsToEmbedValue
+	mask := make([]byte, 2)
+	value := 125.0
+	if _, got := WriteToArray32F(array, mask, float32(value)); got != wantErr {
+		t.Errorf("WriteToArray32F(%x, %x, flaot32(%f)) => %x, want %x", array, mask, float32(value), got, wantErr)
+	}
+	if _, got := WriteToArray64F(array, mask, value); got != wantErr {
+		t.Errorf("WriteToArray32F(%x, %x, %f) => %x, want %x", array, mask, value, got, wantErr)
+	}
+
+	array = make([]byte, 12)
+	maskValuePairs = []interface{}{
+		MaskValuePair64F{[]byte{0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, 0.25},
+		MaskValuePair32F{[]byte{0xFF, 0xFF, 0xFF, 0xFF}, 0.50},
+	}
+	want = []byte{0x3f, 0x00, 0x00, 0x00, 0x3f, 0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	if got, e := MultWriteToArray(array, maskValuePairs...); e != nil || !reflect.DeepEqual(got, want) {
+		if e != nil {
+			t.Errorf("Got the error: %s", e)
+		}
+		t.Errorf("MultWriteToArray(%x, %x) = %x, want %x", array, maskValuePairs, got, want)
+	}
+
 }
 
 func BenchmarkReadFromArray(b *testing.B) {
